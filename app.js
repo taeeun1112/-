@@ -1,11 +1,34 @@
-/**
- * 한줄 댓글 피드 - Frontend Logic
- */
+// 디버깅을 위한 전역 에러 핸들러 (화면에 직접 에러를 경고창으로 표시해 줍니다)
+window.onerror = function(message, source, lineno, colno, error) {
+  alert("자바스크립트 오류 발생:\n" + message + "\n파일: " + source + "\n라인: " + lineno);
+  return false;
+};
+
+window.onunhandledrejection = function(event) {
+  alert("비동기 처리(Promise) 오류 발생:\n" + event.reason);
+};
+
+// --- Supabase Connection ---
+// .env의 값을 코드 내에 직접 하드코딩하여 빌드 도구 없이도 작동하게 만듭니다.
+const supabaseUrl = 'https://pubeqsfxacavsoguohmc.supabase.co';
+const supabaseAnonKey = 'sb_publishable_UEreoEeLvm7W5CrVqeB9wQ_KzAjGxZT';
+
+let supabase = null;
 
 document.addEventListener('DOMContentLoaded', () => {
+  // 브라우저 환경에서 Supabase CDN이 올바르게 로드되었는지 확인합니다.
+  if (!window.supabase) {
+    console.error('Supabase CDN이 로드되지 않았습니다. 인터넷 연결을 확인하거나 CDN 주소를 확인해주세요.');
+    alert('Supabase 라이브러리를 가져오지 못했습니다. 인터넷 연결 상태를 확인하고 페이지를 새로고침해 주세요.');
+    return;
+  }
+
+  // Supabase 클라이언트 초기화
+  supabase = window.supabase.createClient(supabaseUrl, supabaseAnonKey);
+
   // --- State ---
   let comments = [];
-  let likedIds = [];
+  let likedIds = JSON.parse(localStorage.getItem('liked_comment_ids') || '[]');
 
   // --- DOM Elements ---
   const themeToggle = document.getElementById('theme-toggle');
@@ -20,17 +43,124 @@ document.addEventListener('DOMContentLoaded', () => {
   // --- Initializer ---
   function init() {
     loadTheme();
-    renderComments();
     setupEventListeners();
+    loadCommentsAndReplies();
+    subscribeRealtime();
+  }
+
+  // --- Database CRUD Logics ---
+  async function loadCommentsAndReplies() {
+    try {
+      // Fetch comments and replies in a single nested join query
+      const { data, error } = await supabase
+        .from('comments')
+        .select('*, replies(*)')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      comments = data.map(item => ({
+        id: item.id,
+        author: item.author,
+        content: item.content,
+        timestamp: Date.parse(item.created_at),
+        likes: item.likes || 0,
+        replies: (item.replies || []).map(r => ({
+          id: r.id,
+          author: r.author,
+          content: r.content,
+          timestamp: Date.parse(r.created_at)
+        })).sort((a, b) => a.timestamp - b.timestamp) // Sort replies older to newer
+      }));
+
+      renderComments();
+    } catch (err) {
+      console.error('Error loading comments/replies:', err);
+      alert('댓글 목록 로드 실패:\n' + (err.message || err));
+      commentCountEl.textContent = 'Error';
+    }
+  }
+
+  // --- Realtime Sync ---
+  let currentSubscription = null;
+  function subscribeRealtime() {
+    if (currentSubscription) {
+      supabase.removeChannel(currentSubscription);
+    }
+
+    currentSubscription = supabase
+      .channel('comments-feed-channel')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'comments' }, (payload) => {
+        const { eventType, new: newRow, old: oldRow } = payload;
+        
+        if (eventType === 'INSERT') {
+          // If already rendered locally, ignore to avoid duplicating
+          if (!comments.some(c => c.id === newRow.id)) {
+            const newComment = {
+              id: newRow.id,
+              author: newRow.author,
+              content: newRow.content,
+              timestamp: Date.parse(newRow.created_at),
+              likes: newRow.likes || 0,
+              replies: []
+            };
+            comments.unshift(newComment);
+            renderComments();
+            highlightCard(newRow.id);
+          }
+        } else if (eventType === 'UPDATE') {
+          const comment = comments.find(c => c.id === newRow.id);
+          if (comment) {
+            let needsRender = false;
+            if (comment.likes !== newRow.likes) {
+              comment.likes = newRow.likes;
+              needsRender = true;
+            }
+            if (comment.author !== newRow.author || comment.content !== newRow.content) {
+              comment.author = newRow.author;
+              comment.content = newRow.content;
+              needsRender = true;
+            }
+            if (needsRender) {
+              renderComments();
+            }
+          }
+        } else if (eventType === 'DELETE') {
+          comments = comments.filter(c => c.id !== oldRow.id);
+          renderComments();
+        }
+      })
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'replies' }, (payload) => {
+        const newReplyRow = payload.new;
+        const parentComment = comments.find(c => c.id === newReplyRow.comment_id);
+        
+        if (parentComment) {
+          if (!parentComment.replies) parentComment.replies = [];
+          // Avoid duplicate renders
+          if (!parentComment.replies.some(r => r.id === newReplyRow.id)) {
+            const newReply = {
+              id: newReplyRow.id,
+              author: newReplyRow.author,
+              content: newReplyRow.content,
+              timestamp: Date.parse(newReplyRow.created_at)
+            };
+            parentComment.replies.push(newReply);
+            parentComment.replies.sort((a, b) => a.timestamp - b.timestamp);
+            renderComments();
+            highlightCard(newReplyRow.id, true);
+          }
+        }
+      })
+      .subscribe();
   }
 
   // --- Theme Management ---
   function loadTheme() {
-    // Default to system preference or dark mode
     const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
     document.documentElement.setAttribute('data-theme', prefersDark ? 'dark' : 'light');
   }
 
+  // Toggle theme
   function toggleTheme() {
     const currentTheme = document.documentElement.getAttribute('data-theme');
     const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
@@ -48,6 +178,7 @@ document.addEventListener('DOMContentLoaded', () => {
       .replace(/'/g, '&#039;');
   }
 
+  // First letter avatar
   function getAvatarLetter(name) {
     if (!name) return '익';
     return name.trim().charAt(0);
@@ -68,6 +199,19 @@ document.addEventListener('DOMContentLoaded', () => {
     
     const date = new Date(timestamp);
     return `${date.getFullYear()}.${String(date.getMonth() + 1).padStart(2, '0')}.${String(date.getDate()).padStart(2, '0')}`;
+  }
+
+  function highlightCard(id, isReply = false) {
+    setTimeout(() => {
+      const card = commentList.querySelector(`[data-id="${id}"]`);
+      if (card) {
+        card.classList.add('newly-added');
+        setTimeout(() => {
+          card.classList.remove('newly-added');
+        }, 2000);
+        card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+    }, 100);
   }
 
   // --- Render logic ---
@@ -171,69 +315,101 @@ document.addEventListener('DOMContentLoaded', () => {
     return replyCard;
   }
 
-  // --- DOM Manipulation Actions ---
-  function handleCommentSubmit(e) {
+  // --- Action Handlers ---
+  async function handleCommentSubmit(e) {
     e.preventDefault();
     const author = authorInput.value.trim();
     const content = contentInput.value.trim();
 
     if (!author || !content) return;
 
-    const newComment = {
-      id: 'c_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
-      author: author,
-      content: content,
-      timestamp: Date.now(),
-      likes: 0,
-      replies: []
-    };
+    try {
+      const { data, error } = await supabase
+        .from('comments')
+        .insert([{ author, content }])
+        .select();
 
-    comments.unshift(newComment);
-    renderComments();
+      if (error) throw error;
 
-    // Reset inputs
-    authorInput.value = '';
-    contentInput.value = '';
-    charCountEl.textContent = '0';
+      // Reset inputs
+      authorInput.value = '';
+      contentInput.value = '';
+      charCountEl.textContent = '0';
 
-    // Highlight newly added comment
-    const newCard = commentList.querySelector(`[data-id="${newComment.id}"]`);
-    if (newCard) {
-      newCard.classList.add('newly-added');
-      setTimeout(() => {
-        newCard.classList.remove('newly-added');
-      }, 2000);
-      newCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      if (data && data[0]) {
+        const newComment = {
+          id: data[0].id,
+          author: data[0].author,
+          content: data[0].content,
+          timestamp: Date.parse(data[0].created_at),
+          likes: data[0].likes || 0,
+          replies: []
+        };
+        
+        // Optimistically insert locally if not already done by Realtime
+        if (!comments.some(c => c.id === newComment.id)) {
+          comments.unshift(newComment);
+          renderComments();
+          highlightCard(newComment.id);
+        }
+      }
+    } catch (err) {
+      console.error('Error inserting comment:', err);
+      alert('댓글 등록 중 오류가 발생했습니다. DB 연동 정보를 확인해주세요.\n오류 내용: ' + (err.message || err));
     }
   }
 
-  // --- Likes Flow ---
-  function handleLike(btn, id) {
-    const comment = comments.find(c => c.id === id);
-    if (!comment) return;
-
+  async function handleLike(btn, id) {
+    const isLiked = likedIds.includes(id);
     const likeCountSpan = btn.querySelector('.like-count');
     const heartIcon = btn.querySelector('i');
-    
-    const index = likedIds.indexOf(id);
-    if (index === -1) {
-      // Like it
-      likedIds.push(id);
-      comment.likes = (comment.likes || 0) + 1;
-      btn.classList.add('liked');
-      heartIcon.className = 'fa-solid fa-heart';
-    } else {
-      // Unlike it
-      likedIds.splice(index, 1);
-      comment.likes = Math.max(0, (comment.likes || 1) - 1);
-      btn.classList.remove('liked');
-      heartIcon.className = 'fa-regular fa-heart';
-    }
 
-    likeCountSpan.textContent = comment.likes;
+    try {
+      if (!isLiked) {
+        // Optimistic UI updates
+        likedIds.push(id);
+        localStorage.setItem('liked_comment_ids', JSON.stringify(likedIds));
+        
+        btn.classList.add('liked');
+        if (heartIcon) heartIcon.className = 'fa-solid fa-heart';
+        
+        const comment = comments.find(c => c.id === id);
+        if (comment) {
+          comment.likes += 1;
+          if (likeCountSpan) likeCountSpan.textContent = comment.likes;
+        }
+
+        // Call remote DB RPC
+        const { error } = await supabase.rpc('increment_comment_likes', { comment_id: id });
+        if (error) throw error;
+      } else {
+        // Optimistic UI updates
+        const index = likedIds.indexOf(id);
+        if (index !== -1) likedIds.splice(index, 1);
+        localStorage.setItem('liked_comment_ids', JSON.stringify(likedIds));
+
+        btn.classList.remove('liked');
+        if (heartIcon) heartIcon.className = 'fa-regular fa-heart';
+
+        const comment = comments.find(c => c.id === id);
+        if (comment) {
+          comment.likes = Math.max(0, comment.likes - 1);
+          if (likeCountSpan) likeCountSpan.textContent = comment.likes;
+        }
+
+        // Call remote DB RPC
+        const { error } = await supabase.rpc('decrement_comment_likes', { comment_id: id });
+        if (error) throw error;
+      }
+    } catch (err) {
+      console.error('Error handling like:', err);
+      alert('좋아요 처리 중 오류가 발생했습니다.\n오류 내용: ' + (err.message || err));
+      // Revert optimistic changes on error
+      likedIds = JSON.parse(localStorage.getItem('liked_comment_ids') || '[]');
+      await loadCommentsAndReplies();
+    }
   }
 
-  // --- Replies Flow ---
   function handleToggleReplyBox(btn, commentId) {
     const container = document.getElementById(`replies-container-${commentId}`);
     if (!container) return;
@@ -283,20 +459,40 @@ document.addEventListener('DOMContentLoaded', () => {
     rAuthor.focus();
   }
 
-  function submitReply(parentId, author, content) {
-    const parentComment = comments.find(c => c.id === parentId);
-    if (!parentComment) return;
+  async function submitReply(parentId, author, content) {
+    try {
+      const { data, error } = await supabase
+        .from('replies')
+        .insert([{ comment_id: parentId, author, content }])
+        .select();
 
-    const newReply = {
-      id: 'r_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
-      author: author,
-      content: content,
-      timestamp: Date.now()
-    };
+      if (error) throw error;
 
-    if (!parentComment.replies) parentComment.replies = [];
-    parentComment.replies.push(newReply);
-    renderComments();
+      if (data && data[0]) {
+        const parentComment = comments.find(c => c.id === parentId);
+        if (parentComment) {
+          if (!parentComment.replies) parentComment.replies = [];
+          
+          const newReply = {
+            id: data[0].id,
+            author: data[0].author,
+            content: data[0].content,
+            timestamp: Date.parse(data[0].created_at)
+          };
+          
+          // Optimistically add to local state if not added by Realtime
+          if (!parentComment.replies.some(r => r.id === newReply.id)) {
+            parentComment.replies.push(newReply);
+            parentComment.replies.sort((a, b) => a.timestamp - b.timestamp);
+            renderComments();
+            highlightCard(data[0].id, true);
+          }
+        }
+      }
+    } catch (err) {
+      console.error('Error submitting reply:', err);
+      alert('답글 등록 중 오류가 발생했습니다. DB 구성을 확인해주세요.\n오류 내용: ' + (err.message || err));
+    }
   }
 
   // --- Event Listeners Setup ---
