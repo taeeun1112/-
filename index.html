@@ -15,7 +15,7 @@
   <!-- Supabase CDN -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <!-- Application JS -->
-  <script src="app.js" defer></script>
+  <script type="module" src="app.js"></script>
 </head>
 <body>
   <div class="app-container">
@@ -77,6 +77,15 @@
     <footer class="app-footer">
       <p>&copy; 2026 Live Comment Feed. All rights reserved.</p>
     </footer>
+  </div>
+
+  <!-- Debug Console -->
+  <div id="debug-panel" style="position: fixed; bottom: 16px; right: 16px; width: 360px; height: 220px; background: #18181b; border: 1px solid #3f3f46; border-radius: 8px; z-index: 9999; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5); font-family: system-ui, -apple-system, sans-serif;">
+    <div style="background: #27272a; padding: 8px 12px; font-size: 0.8rem; font-weight: bold; border-bottom: 1px solid #3f3f46; display: flex; justify-content: space-between; align-items: center; color: #f4f4f5;">
+      <span>🛠️ 시스템 디버그 로그</span>
+      <button onclick="document.getElementById('debug-console').innerHTML=''" style="background: none; border: none; color: #a1a1aa; cursor: pointer; font-size: 0.75rem; hover: { color: #f4f4f5 };">Clear</button>
+    </div>
+    <div id="debug-console" style="flex: 1; padding: 10px; overflow-y: auto; color: #e4e4e7; font-size: 0.75rem; line-height: 1.4; text-align: left;"></div>
   </div>
 </body>
 </html>

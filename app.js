@@ -1,10 +1,26 @@
+// 디버깅용 화면 로그 함수
+function logDebug(message, type = 'info') {
+  console.log(`[DEBUG] ${message}`);
+  const debugConsole = document.getElementById('debug-console');
+  if (debugConsole) {
+    const logEl = document.createElement('div');
+    logEl.style.color = type === 'error' ? '#f87171' : type === 'success' ? '#34d399' : '#a1a1aa';
+    logEl.style.marginBottom = '4px';
+    logEl.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+    debugConsole.appendChild(logEl);
+    debugConsole.scrollTop = debugConsole.scrollHeight;
+  }
+}
+
 // 디버깅을 위한 전역 에러 핸들러 (화면에 직접 에러를 경고창으로 표시해 줍니다)
 window.onerror = function(message, source, lineno, colno, error) {
+  logDebug(`자바스크립트 오류: ${message} (파일: ${source}, 라인: ${lineno})`, 'error');
   alert("자바스크립트 오류 발생:\n" + message + "\n파일: " + source + "\n라인: " + lineno);
   return false;
 };
 
 window.onunhandledrejection = function(event) {
+  logDebug(`비동기 프로미스 오류: ${event.reason}`, 'error');
   alert("비동기 처리(Promise) 오류 발생:\n" + event.reason);
 };
 
@@ -15,16 +31,21 @@ const supabaseAnonKey = 'sb_publishable_UEreoEeLvm7W5CrVqeB9wQ_KzAjGxZT';
 
 let supabase = null;
 
-document.addEventListener('DOMContentLoaded', () => {
+function startApp() {
+  logDebug('애플리케이션 시작 (DOM 준비 완료)');
+
   // 브라우저 환경에서 Supabase CDN이 올바르게 로드되었는지 확인합니다.
   if (!window.supabase) {
+    logDebug('Supabase 라이브러리(CDN) 로드 실패!', 'error');
     console.error('Supabase CDN이 로드되지 않았습니다. 인터넷 연결을 확인하거나 CDN 주소를 확인해주세요.');
     alert('Supabase 라이브러리를 가져오지 못했습니다. 인터넷 연결 상태를 확인하고 페이지를 새로고침해 주세요.');
     return;
   }
 
   // Supabase 클라이언트 초기화
+  logDebug('Supabase 클라이언트 초기화 시작...');
   supabase = window.supabase.createClient(supabaseUrl, supabaseAnonKey);
+  logDebug('Supabase 클라이언트 초기화 완료', 'success');
 
   // --- State ---
   let comments = [];
@@ -50,6 +71,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // --- Database CRUD Logics ---
   async function loadCommentsAndReplies() {
+    logDebug('DB에서 댓글 목록을 조회하는 중...');
     try {
       // Fetch comments and replies in a single nested join query
       const { data, error } = await supabase
@@ -58,6 +80,8 @@ document.addEventListener('DOMContentLoaded', () => {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
+
+      logDebug(`댓글 목록 로드 성공 (${data?.length || 0}개의 댓글 발견)`, 'success');
 
       comments = data.map(item => ({
         id: item.id,
@@ -76,6 +100,7 @@ document.addEventListener('DOMContentLoaded', () => {
       renderComments();
     } catch (err) {
       console.error('Error loading comments/replies:', err);
+      logDebug(`댓글 목록 로드 실패: ${err.message || err}`, 'error');
       alert('댓글 목록 로드 실패:\n' + (err.message || err));
       commentCountEl.textContent = 'Error';
     }
@@ -84,6 +109,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // --- Realtime Sync ---
   let currentSubscription = null;
   function subscribeRealtime() {
+    logDebug('실시간 동기화(Realtime) 연결 등록 중...');
     if (currentSubscription) {
       supabase.removeChannel(currentSubscription);
     }
@@ -92,6 +118,7 @@ document.addEventListener('DOMContentLoaded', () => {
       .channel('comments-feed-channel')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'comments' }, (payload) => {
         const { eventType, new: newRow, old: oldRow } = payload;
+        logDebug(`실시간 이벤트 감지 (comments 테이블 - ${eventType})`);
         
         if (eventType === 'INSERT') {
           // If already rendered locally, ignore to avoid duplicating
@@ -132,6 +159,7 @@ document.addEventListener('DOMContentLoaded', () => {
       })
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'replies' }, (payload) => {
         const newReplyRow = payload.new;
+        logDebug(`실시간 이벤트 감지 (replies 테이블 - INSERT)`);
         const parentComment = comments.find(c => c.id === newReplyRow.comment_id);
         
         if (parentComment) {
@@ -151,7 +179,9 @@ document.addEventListener('DOMContentLoaded', () => {
           }
         }
       })
-      .subscribe();
+      .subscribe((status) => {
+        logDebug(`실시간 구독 상태 변경: ${status}`, status === 'SUBSCRIBED' ? 'success' : 'info');
+      });
   }
 
   // --- Theme Management ---
@@ -323,6 +353,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (!author || !content) return;
 
+    logDebug(`댓글 등록 요청 중... (작성자: ${author})`);
     try {
       const { data, error } = await supabase
         .from('comments')
@@ -330,6 +361,8 @@ document.addEventListener('DOMContentLoaded', () => {
         .select();
 
       if (error) throw error;
+
+      logDebug(`댓글 등록 완료: ${JSON.stringify(data)}`, 'success');
 
       // Reset inputs
       authorInput.value = '';
@@ -355,6 +388,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     } catch (err) {
       console.error('Error inserting comment:', err);
+      logDebug(`댓글 등록 실패: ${err.message || err}`, 'error');
       alert('댓글 등록 중 오류가 발생했습니다. DB 연동 정보를 확인해주세요.\n오류 내용: ' + (err.message || err));
     }
   }
@@ -543,4 +577,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Run initial loading
   init();
-});
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', startApp);
+} else {
+  startApp();
+}
