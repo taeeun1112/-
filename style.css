@@ -906,6 +906,7 @@ body {
   border-radius: 14px;
   box-shadow: var(--shadow-sm);
   transition: all var(--transition-normal);
+  margin-bottom: 1.25rem;
 }
 
 .app-notice:hover {
