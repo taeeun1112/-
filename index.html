@@ -29,7 +29,10 @@
         <i class="fa-solid fa-flask logo-icon"></i>
         <h1>마음의 소리함</h1>
       </div>
-      <div class="header-right">
+      <div class="header-right" style="display: flex; gap: 0.5rem;">
+        <button id="debug-toggle" class="icon-btn" aria-label="디버그 로그 토글">
+          <i class="fa-solid fa-bug"></i>
+        </button>
         <button id="theme-toggle" class="icon-btn" aria-label="테마 전환">
           <i class="fa-solid fa-sun theme-sun-icon"></i>
           <i class="fa-solid fa-moon theme-moon-icon"></i>
@@ -89,9 +92,8 @@
     </footer>
   </div>
 
-  <!-- Debug Console -->
   <div id="debug-panel"
-    style="position: fixed; bottom: 16px; right: 16px; width: 360px; height: 220px; background: #18181b; border: 1px solid #3f3f46; border-radius: 8px; z-index: 9999; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5); font-family: system-ui, -apple-system, sans-serif;">
+    style="position: fixed; bottom: 16px; right: 16px; width: 360px; height: 220px; background: #18181b; border: 1px solid #3f3f46; border-radius: 8px; z-index: 9999; display: none; flex-direction: column; overflow: hidden; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5); font-family: system-ui, -apple-system, sans-serif;">
     <div
       style="background: #27272a; padding: 8px 12px; font-size: 0.8rem; font-weight: bold; border-bottom: 1px solid #3f3f46; display: flex; justify-content: space-between; align-items: center; color: #f4f4f5;">
       <span>🛠️ 시스템 디버그 로그</span>

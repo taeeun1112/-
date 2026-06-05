@@ -53,6 +53,8 @@ function startApp() {
 
   // --- DOM Elements ---
   const themeToggle = document.getElementById('theme-toggle');
+  const debugToggle = document.getElementById('debug-toggle');
+  const debugPanel = document.getElementById('debug-panel');
   const commentCountEl = document.getElementById('comment-count');
   const commentForm = document.getElementById('comment-form');
   const authorInput = document.getElementById('comment-author');
@@ -533,6 +535,27 @@ function startApp() {
   function setupEventListeners() {
     // Theme toggle
     themeToggle.addEventListener('click', toggleTheme);
+
+    // Debug Panel toggle
+    if (debugToggle && debugPanel) {
+      debugToggle.addEventListener('click', () => {
+        const isHidden = debugPanel.style.display === 'none' || debugPanel.style.display === '';
+        debugPanel.style.display = isHidden ? 'flex' : 'none';
+        
+        // Give the toggle button a highlighted look when open
+        if (isHidden) {
+          debugToggle.classList.add('active');
+          debugToggle.style.color = 'var(--color-danger)';
+          debugToggle.style.borderColor = 'rgba(239, 68, 68, 0.2)';
+          debugToggle.style.background = 'rgba(239, 68, 68, 0.08)';
+        } else {
+          debugToggle.classList.remove('active');
+          debugToggle.style.color = '';
+          debugToggle.style.borderColor = '';
+          debugToggle.style.background = '';
+        }
+      });
+    }
 
     // Comment submission
     commentForm.addEventListener('submit', handleCommentSubmit);
