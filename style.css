@@ -194,6 +194,8 @@ body {
   padding: 1.5rem;
   box-shadow: var(--shadow-lg);
   transition: all var(--transition-normal);
+  margin-top: 0.75rem;
+  margin-bottom: 2rem;
 }
 
 .comment-form {
