@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="ko" data-theme="dark">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,7 +8,9 @@
   <!-- Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet">
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+KR:wght@300;400;500;700&display=swap"
+    rel="stylesheet">
   <!-- FontAwesome Icons -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <!-- Stylesheet -->
@@ -17,13 +20,14 @@
   <!-- Application JS -->
   <script type="module" src="app.js"></script>
 </head>
+
 <body>
   <div class="app-container">
     <!-- Header -->
     <header class="app-header">
       <div class="header-left">
         <i class="fa-solid fa-comments logo-icon"></i>
-        <h1>실시간 댓글 피드</h1>
+        <h1>의미 없는 익명 에스크</h1>
       </div>
       <div class="header-right">
         <button id="theme-toggle" class="icon-btn" aria-label="테마 전환">
@@ -80,12 +84,18 @@
   </div>
 
   <!-- Debug Console -->
-  <div id="debug-panel" style="position: fixed; bottom: 16px; right: 16px; width: 360px; height: 220px; background: #18181b; border: 1px solid #3f3f46; border-radius: 8px; z-index: 9999; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5); font-family: system-ui, -apple-system, sans-serif;">
-    <div style="background: #27272a; padding: 8px 12px; font-size: 0.8rem; font-weight: bold; border-bottom: 1px solid #3f3f46; display: flex; justify-content: space-between; align-items: center; color: #f4f4f5;">
+  <div id="debug-panel"
+    style="position: fixed; bottom: 16px; right: 16px; width: 360px; height: 220px; background: #18181b; border: 1px solid #3f3f46; border-radius: 8px; z-index: 9999; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5); font-family: system-ui, -apple-system, sans-serif;">
+    <div
+      style="background: #27272a; padding: 8px 12px; font-size: 0.8rem; font-weight: bold; border-bottom: 1px solid #3f3f46; display: flex; justify-content: space-between; align-items: center; color: #f4f4f5;">
       <span>🛠️ 시스템 디버그 로그</span>
-      <button onclick="document.getElementById('debug-console').innerHTML=''" style="background: none; border: none; color: #a1a1aa; cursor: pointer; font-size: 0.75rem; hover: { color: #f4f4f5 };">Clear</button>
+      <button onclick="document.getElementById('debug-console').innerHTML=''"
+        style="background: none; border: none; color: #a1a1aa; cursor: pointer; font-size: 0.75rem; hover: { color: #f4f4f5 };">Clear</button>
     </div>
-    <div id="debug-console" style="flex: 1; padding: 10px; overflow-y: auto; color: #e4e4e7; font-size: 0.75rem; line-height: 1.4; text-align: left;"></div>
+    <div id="debug-console"
+      style="flex: 1; padding: 10px; overflow-y: auto; color: #e4e4e7; font-size: 0.75rem; line-height: 1.4; text-align: left;">
+    </div>
   </div>
 </body>
+
 </html>
